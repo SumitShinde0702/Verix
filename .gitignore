@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+*.js.map
+*.tsbuildinfo
+
+# frontend build output
+frontend/dist/
+
+# logs
+*.log
+npm-debug.log*
