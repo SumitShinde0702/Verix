@@ -1,6 +1,7 @@
 export type DemoStepId =
   | 'agents_created'
   | 'dids_registered'
+  | 'ai_decision'
   | 'task_posted'
   | 'escrow_created'
   | 'api_called'
@@ -9,7 +10,10 @@ export type DemoStepId =
   | 'sig_validated'
   | 'hash_validated'
   | 'escrow_finished'
-  | 'audit_logged';
+  | 'audit_logged'
+  | 'funds_protected';
+
+export type FailAt = 'none' | 'schema' | 'signature';
 
 export type DemoStepStatus = 'running' | 'completed' | 'failed';
 

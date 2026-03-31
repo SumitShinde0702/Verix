@@ -1,25 +1,38 @@
 import { useState, useRef, useCallback } from 'react';
-import AgentCard  from './components/AgentCard';
-import StoryFeed  from './components/StoryFeed';
-import type { DemoEvent } from './types';
+import AgentCard   from './components/AgentCard';
+import StoryFeed   from './components/StoryFeed';
+import QueryInput  from './components/QueryInput';
+import type { DemoEvent, FailAt } from './types';
 
-const TOTAL_STEPS = 11;
+const TOTAL_STEPS = 12;
 
 export default function App() {
   const [events, setEvents]       = useState<DemoEvent[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [isDone, setIsDone]       = useState(false);
   const [error, setError]         = useState<string | null>(null);
+  const [query, setQuery]         = useState('Get me the Ethereum price');
+  const [failAt, setFailAt]       = useState<FailAt>('none');
   const esRef = useRef<EventSource | null>(null);
 
+  const modeLabel =
+    failAt === 'none' ? 'Honest worker' :
+    failAt === 'schema' ? 'Bad schema (Layer 1 fail)' :
+    'Forged signature (Layer 2 fail)';
+
   const completedCount = new Set(
-    events.filter((e) => e.status === 'completed').map((e) => e.step)
+    events
+      .filter((e) => e.status === 'completed' || e.status === 'failed')
+      .map((e) => e.step)
   ).size;
 
   const success = isDone && events.some(
     (e) => e.step === 'audit_logged' && e.status === 'completed'
   );
-  const failed = isDone && !success;
+  const fundsProtected = isDone && events.some(
+    (e) => e.step === 'funds_protected' && e.status === 'completed'
+  );
+  const failed = isDone && !success && !fundsProtected;
 
   const runDemo = useCallback(() => {
     if (isRunning) return;
@@ -28,7 +41,8 @@ export default function App() {
     setError(null);
     setIsRunning(true);
 
-    const es = new EventSource('/api/demo/run');
+    const url = `/api/demo/run?query=${encodeURIComponent(query || 'Get me the ETH price')}&failAt=${failAt}`;
+    const es = new EventSource(url);
     esRef.current = es;
 
     es.onmessage = (msg: MessageEvent<string>) => {
@@ -49,7 +63,7 @@ export default function App() {
       setIsRunning(false);
       es.close();
     };
-  }, [isRunning]);
+  }, [isRunning, query, failAt]);
 
   const reset = () => {
     esRef.current?.close();
@@ -57,9 +71,42 @@ export default function App() {
     setIsDone(false);
     setIsRunning(false);
     setError(null);
+    setQuery('Get me the Ethereum price');
+    setFailAt('none');
   };
 
   const progressPct = Math.round((completedCount / TOTAL_STEPS) * 100);
+  const didEvent = events.find((e) => e.step === 'dids_registered' && e.status === 'completed');
+  const escrowCreateEvent = events.find((e) => e.step === 'escrow_created' && e.status === 'completed');
+  const escrowFinishEvent = events.find((e) => e.step === 'escrow_finished' && e.status === 'completed');
+  const auditEvent = events.find((e) => e.step === 'audit_logged' && e.status === 'completed');
+  const protectedEvent = events.find((e) => e.step === 'funds_protected' && e.status === 'completed');
+
+  const repSource = (auditEvent?.data?.reputation ?? protectedEvent?.data?.reputation) as
+    | { workerBefore?: number; workerAfter?: number; buyerBefore?: number; buyerAfter?: number }
+    | undefined;
+  const buyerDid = didEvent?.data?.buyerDID ? String(didEvent.data.buyerDID) : '';
+  const workerDid = didEvent?.data?.workerDID ? String(didEvent.data.workerDID) : '';
+  const buyerDidUrl = buyerDid
+    ? `https://testnet.xrpl.org/accounts/${buyerDid.split(':').pop()}`
+    : '';
+  const workerDidUrl = workerDid
+    ? `https://testnet.xrpl.org/accounts/${workerDid.split(':').pop()}`
+    : '';
+  const escrowCreateTx = escrowCreateEvent?.data?.escrowTxHash
+    ? String(escrowCreateEvent.data.escrowTxHash)
+    : '';
+  const escrowCreateUrl = escrowCreateTx
+    ? `https://testnet.xrpl.org/transactions/${escrowCreateTx}`
+    : '';
+  const escrowFinishTx = escrowFinishEvent?.data?.txHash
+    ? String(escrowFinishEvent.data.txHash)
+    : '';
+  const escrowFinishUrl = escrowFinishTx
+    ? `https://testnet.xrpl.org/transactions/${escrowFinishTx}`
+    : '';
+  const auditUrl = auditEvent?.data?.auditUrl ? String(auditEvent.data.auditUrl) : '';
+  const failedLayer = protectedEvent?.data?.failedAt ? String(protectedEvent.data.failedAt) : '';
 
   return (
     <div className="min-h-screen bg-void grid-overlay flex flex-col">
@@ -106,8 +153,25 @@ export default function App() {
           </p>
         </div>
 
+        {/* ── Query input ──────────────────────────────────────────────────── */}
+        {!isRunning && events.length === 0 && (
+          <QueryInput
+            value={query}
+            onChange={setQuery}
+            failAt={failAt}
+            onFailAtChange={setFailAt}
+            disabled={isRunning}
+          />
+        )}
+
         {/* ── Run Demo button ──────────────────────────────────────────────── */}
-        <div className="flex items-center justify-center gap-3">
+        <div className="flex flex-col items-center gap-2">
+          {!isRunning && (
+            <p className="text-xs font-mono text-slate-500">
+              Mode sent to backend: <span className="text-slate-300">{modeLabel}</span>
+            </p>
+          )}
+          <div className="flex items-center justify-center gap-3">
           <button
             onClick={runDemo}
             disabled={isRunning}
@@ -130,6 +194,7 @@ export default function App() {
               Reset
             </button>
           )}
+          </div>
         </div>
 
         {error && (
@@ -188,6 +253,11 @@ export default function App() {
             <p className="text-sm text-slate-400">
               End-to-end trustless settlement on XRPL testnet — no middleman, no scripts, just math.
             </p>
+            {repSource && (
+              <p className="text-xs font-mono text-slate-300">
+                Reputation: Worker {repSource.workerBefore ?? '-'} → {repSource.workerAfter ?? '-'} · Buyer {repSource.buyerBefore ?? '-'} → {repSource.buyerAfter ?? '-'}
+              </p>
+            )}
             <div className="flex justify-center gap-4 pt-2 flex-wrap">
               {(() => {
                 const ev = events.find(e => e.step === 'escrow_finished' && e.status === 'completed');
@@ -214,13 +284,105 @@ export default function App() {
           </div>
         )}
 
+        {fundsProtected && (
+          <div className="rounded-2xl border border-rose-DEFAULT/30 bg-rose-DEFAULT/5 p-6 text-center animate-fade-in space-y-3">
+            <p className="text-xl font-bold text-rose-DEFAULT">
+              ✗ Validation Failed · Escrow Still Locked
+            </p>
+            <p className="text-sm text-slate-400 max-w-md mx-auto leading-relaxed">
+              The bad worker submitted invalid output.{' '}
+              <span className="text-slate-200">Verix caught it, blocked the EscrowFinish,
+              and the buyer's 1 XRP stays locked on-chain.</span>{' '}
+              No human arbitration needed — the math did it.
+            </p>
+            <div className="flex justify-center gap-3 pt-1 flex-wrap">
+              <div className="text-xs font-mono border border-rose-DEFAULT/30 rounded-lg px-4 py-2 text-rose-DEFAULT">
+                Worker paid: 0 XRP
+              </div>
+              <div className="text-xs font-mono border border-emerald-DEFAULT/30 rounded-lg px-4 py-2 text-emerald-DEFAULT">
+                Buyer funds: protected
+              </div>
+            </div>
+            {repSource && (
+              <p className="text-xs font-mono text-slate-300">
+                Reputation: Worker {repSource.workerBefore ?? '-'} → {repSource.workerAfter ?? '-'} · Buyer {repSource.buyerBefore ?? '-'} → {repSource.buyerAfter ?? '-'}
+              </p>
+            )}
+          </div>
+        )}
+
+        {(isDone && events.length > 0) && (
+          <div className="rounded-2xl border border-border bg-card p-6 animate-fade-in space-y-3">
+            <h3 className="text-sm font-semibold uppercase tracking-widest text-slate-300">
+              Proof Bundle
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              {Boolean(buyerDidUrl) && (
+                <a
+                  href={buyerDidUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-mono border border-border rounded-lg px-3 py-2 text-cyan-DEFAULT hover:text-white hover:border-cyan-DEFAULT/40 transition-colors"
+                >
+                  Buyer DID ↗
+                </a>
+              )}
+              {Boolean(workerDidUrl) && (
+                <a
+                  href={workerDidUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-mono border border-border rounded-lg px-3 py-2 text-cyan-DEFAULT hover:text-white hover:border-cyan-DEFAULT/40 transition-colors"
+                >
+                  Worker DID ↗
+                </a>
+              )}
+              {Boolean(escrowCreateUrl) && (
+                <a
+                  href={escrowCreateUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-mono border border-border rounded-lg px-3 py-2 text-violet-DEFAULT hover:text-white hover:border-violet-DEFAULT/40 transition-colors"
+                >
+                  EscrowCreate Tx ↗
+                </a>
+              )}
+              {Boolean(escrowFinishUrl) && (
+                <a
+                  href={escrowFinishUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-mono border border-border rounded-lg px-3 py-2 text-emerald-DEFAULT hover:text-white hover:border-emerald-DEFAULT/40 transition-colors"
+                >
+                  EscrowFinish Tx ↗
+                </a>
+              )}
+              {Boolean(auditUrl) && (
+                <a
+                  href={auditUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-mono border border-border rounded-lg px-3 py-2 text-amber-DEFAULT hover:text-white hover:border-amber-DEFAULT/40 transition-colors"
+                >
+                  Audit Memo Tx ↗
+                </a>
+              )}
+              {Boolean(failedLayer) && (
+                <div className="font-mono border border-rose-DEFAULT/40 rounded-lg px-3 py-2 text-rose-DEFAULT">
+                  Failed at: Layer {failedLayer}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {failed && (
           <div className="rounded-2xl border border-rose-DEFAULT/30 bg-rose-DEFAULT/5 p-6 text-center animate-fade-in">
             <p className="text-xl font-bold text-rose-DEFAULT mb-2">
-              ✗ Validation Failed · Funds Remain Locked
+              ✗ Demo Error
             </p>
             <p className="text-sm text-slate-400">
-              The escrow protects the buyer — no bad output can release payment.
+              Something went wrong with the demo connection.
             </p>
           </div>
         )}
@@ -231,7 +393,7 @@ export default function App() {
             {[
               { icon: '🤖', color: 'cyan',    title: 'Buyer Agent',      body: 'Posts task. Defines expected output schema. Locks 1 XRP in XRPL escrow tied to a crypto condition.' },
               { icon: '⬡',  color: 'violet',  title: 'Verix Middleware', body: 'Validates output in 3 layers: JSON schema · DID signature · hash condition. No human arbitrator.' },
-              { icon: '🤖', color: 'emerald', title: 'Worker Agent',     body: 'Fetches live ETH/USD from CoinGecko. Returns signed JSON. Receives 1 XRP via automatic EscrowFinish.' },
+              { icon: '🤖', color: 'emerald', title: 'Worker Agent',     body: 'Fetches live price for the AI-chosen asset from CoinGecko. Returns signed JSON. Receives 1 XRP via automatic EscrowFinish.' },
             ].map(({ icon, color, title, body }) => (
               <div key={title} className={`rounded-xl border border-border bg-card p-4 hover:border-${color}-DEFAULT/30 transition-colors`}>
                 <div className="flex items-center gap-2 mb-2">
@@ -254,7 +416,7 @@ export default function App() {
             <span>·</span>
             <span>PREIMAGE-SHA-256 Escrows</span>
             <span>·</span>
-            <span>RLUSD Settlement</span>
+            <span>XRP (testnet)</span>
             <span>·</span>
             <span>AJV Validation</span>
           </div>

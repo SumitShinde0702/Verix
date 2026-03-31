@@ -11,6 +11,8 @@ interface StepMeta {
   actorColor: string;
   label: string;
   sublabel: string;
+  /** If true, only render this step when an event is actually received for it */
+  conditional?: boolean;
 }
 
 const STEPS: StepMeta[] = [
@@ -29,6 +31,14 @@ const STEPS: StepMeta[] = [
     actorColor: 'text-slate-400',
     label: 'XLS-40 DIDs registered on-chain',
     sublabel: 'DIDSet transactions confirmed — agents have persistent on-chain identity',
+  },
+  {
+    id: 'ai_decision',
+    actor: '🧠',
+    actorLabel: 'DEEPSEEK LLM',
+    actorColor: 'text-amber-DEFAULT',
+    label: 'AI agent interprets request & selects asset',
+    sublabel: 'LLM maps your natural-language request to a specific price feed and issues a hiring decision',
   },
   {
     id: 'task_posted',
@@ -51,7 +61,7 @@ const STEPS: StepMeta[] = [
     actor: '🌐',
     actorLabel: 'WORKER AGENT',
     actorColor: 'text-emerald-DEFAULT',
-    label: 'CoinGecko API called — ETH/USD price fetched',
+    label: 'CoinGecko API called — live price fetched',
     sublabel: 'Live price from api.coingecko.com/api/v3',
   },
   {
@@ -102,12 +112,65 @@ const STEPS: StepMeta[] = [
     label: 'Audit trail written on-chain',
     sublabel: 'Immutable memo anchored to XRPL — proof of settlement available forever',
   },
+  {
+    id: 'funds_protected',
+    actor: '🛡️',
+    actorLabel: 'VERIX',
+    actorColor: 'text-rose-DEFAULT',
+    label: 'Escrow still locked — buyer funds protected',
+    sublabel: 'Bad output blocked. EscrowFinish not submitted. Worker receives nothing.',
+    conditional: true,
+  },
 ];
 
 function DataBlock({ data, step }: { data: Record<string, unknown>; step: DemoStepId }) {
   if (!data || Object.keys(data).length === 0) return null;
 
   // Render specialised views for key steps
+  if (step === 'ai_decision') {
+    return (
+      <div className="mt-2 bg-surface border border-amber-DEFAULT/20 rounded-lg p-3 space-y-2">
+        {/* User request */}
+        {!!data.userQuery && (
+          <div className="flex items-start gap-2 pb-2 border-b border-border">
+            <span className="text-xs font-mono text-slate-500 flex-shrink-0">User request</span>
+            <p className="text-xs text-slate-200 italic">&quot;{String(data.userQuery)}&quot;</p>
+          </div>
+        )}
+
+        {/* AI chosen asset + model */}
+        <div className="flex items-center gap-3 flex-wrap">
+          {!!data.symbol && (
+            <span className="text-sm font-bold text-amber-DEFAULT">
+              {String(data.symbol)}/USD
+            </span>
+          )}
+          <span className="text-xs font-mono text-amber-DEFAULT/60 uppercase tracking-wider">
+            {String(data.model ?? 'deepseek-chat')}
+          </span>
+          {!!data.confidence && (
+            <span className="text-xs font-mono text-slate-500">
+              {String(data.confidence)}% confidence
+            </span>
+          )}
+        </div>
+
+        {/* Reasoning */}
+        <p className="text-xs text-slate-300 leading-relaxed italic">
+          &quot;{String(data.reasoning ?? '')}&quot;
+        </p>
+
+        {/* Task description */}
+        {!!data.taskDescription && (
+          <div className="border-t border-border pt-2">
+            <p className="text-xs text-slate-500 mb-0.5">Task issued to worker:</p>
+            <p className="text-xs font-mono text-cyan-DEFAULT">→ {String(data.taskDescription)}</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   if (step === 'agents_created') {
     return (
       <div className="mt-2 grid grid-cols-2 gap-3">
@@ -154,6 +217,40 @@ function DataBlock({ data, step }: { data: Record<string, unknown>; step: DemoSt
 {JSON.stringify(output, null, 2)}
         </pre>
         <p className="text-xs text-slate-600 mt-1">Source: api.coingecko.com</p>
+      </div>
+    );
+  }
+
+  if (step === 'funds_protected') {
+    const failedAt = data.failedAt as string | undefined;
+    const layerName =
+      failedAt === 'schema'    ? 'Layer 1 — JSON Schema' :
+      failedAt === 'signature' ? 'Layer 2 — DID Signature' :
+      failedAt === 'hash'      ? 'Layer 3 — Hash Condition' : 'Validation';
+    return (
+      <div className="mt-2 bg-rose-DEFAULT/5 border border-rose-DEFAULT/20 rounded-lg p-3 space-y-2">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-mono text-rose-DEFAULT">Blocked by: {layerName}</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="bg-surface rounded-lg p-2 text-center">
+            <p className="text-xs text-slate-500">Worker paid</p>
+            <p className="text-sm font-bold text-rose-DEFAULT">0 XRP</p>
+          </div>
+          <div className="bg-surface rounded-lg p-2 text-center">
+            <p className="text-xs text-slate-500">Escrow status</p>
+            <p className="text-sm font-bold text-amber-DEFAULT">LOCKED</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === 'schema_validated' && data.failedAt) {
+    return (
+      <div className="mt-2 bg-rose-DEFAULT/5 border border-rose-DEFAULT/20 rounded-lg p-3 space-y-1.5">
+        {!!data.expected && <DataRow label="Expected" value={String(data.expected)} />}
+        {!!data.received && <DataRow label="Got"      value={String(data.received)} />}
       </div>
     );
   }
@@ -209,12 +306,16 @@ export default function StoryFeed({ events }: Props) {
     <div className="space-y-0">
       {STEPS.map((step, idx) => {
         const ev = eventMap.get(step.id);
+
+        // Conditional steps (e.g. funds_protected) only render when an event arrives
+        if (step.conditional && !ev) return null;
+
         if (!ev && !visibleStepIds.has(step.id)) {
-          // Show upcoming steps as dimmed
-          const allPrev = STEPS.slice(0, idx).every((s) =>
-            eventMap.get(s.id)?.status === 'completed'
-          );
-          if (!allPrev) return null;
+          // Hide non-conditional future steps after a failure.
+          // We only want to show follow-up events that were actually emitted
+          // (e.g. funds_protected), not stale pending validation layers.
+          const prevStatus = idx > 0 ? eventMap.get(STEPS[idx - 1].id)?.status : 'completed';
+          if (!prevStatus || prevStatus === 'failed') return null;
         }
 
         const status = ev?.status ?? 'pending';
@@ -224,7 +325,9 @@ export default function StoryFeed({ events }: Props) {
             {/* Connector line */}
             {idx > 0 && (
               <div className={`absolute left-[23px] -top-3 w-px h-3 transition-colors duration-500
-                ${status === 'completed' ? 'bg-emerald-DEFAULT/40' : 'bg-border'}`}
+                ${status === 'completed' ? 'bg-emerald-DEFAULT/40' :
+                  status === 'failed'    ? 'bg-rose-DEFAULT/40' :
+                  'bg-border'}`}
               />
             )}
 
@@ -264,7 +367,11 @@ export default function StoryFeed({ events }: Props) {
                       status === 'failed'    ? 'text-rose-DEFAULT' :
                       'text-slate-600'}`}
                   >
-                    {step.label}
+                    {/* For api_called / ai_decision, prefer the live message which contains the actual coin */}
+                    {(status === 'completed' && ev?.message &&
+                      (step.id === 'api_called' || step.id === 'ai_decision'))
+                      ? ev.message
+                      : step.label}
                   </span>
                   {status === 'running' && (
                     <span className="flex gap-0.5">
@@ -275,10 +382,14 @@ export default function StoryFeed({ events }: Props) {
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-slate-500 mt-0.5">{step.sublabel}</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {status === 'failed' && ev?.message
+                    ? 'Validation failed for this layer.'
+                    : step.sublabel}
+                </p>
 
-                {/* Data block for completed steps */}
-                {status === 'completed' && ev?.data && (
+                {/* Data block for completed AND failed steps */}
+                {(status === 'completed' || status === 'failed') && ev?.data && (
                   <DataBlock data={ev.data} step={step.id} />
                 )}
                 {status === 'failed' && ev?.message && (
