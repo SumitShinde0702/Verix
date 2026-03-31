@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import AgentCard   from './components/AgentCard';
 import StoryFeed   from './components/StoryFeed';
 import QueryInput  from './components/QueryInput';
@@ -13,6 +13,26 @@ export default function App() {
   const [error, setError]         = useState<string | null>(null);
   const [query, setQuery]         = useState('Get me the Ethereum price');
   const [failAt, setFailAt]       = useState<FailAt>('none');
+  const [repHistory, setRepHistory] = useState<{
+    did: string;
+    currentScore: number;
+    runs: number;
+    history: Array<{
+      timestamp: string;
+      outcome: 'pass' | 'fail';
+      before: number;
+      after: number;
+      delta: number;
+      credentialHash?: string;
+      credentialTxHash?: string;
+      credentialUrl?: string;
+      auditUrl?: string;
+      escrowCreateTx?: string;
+      escrowFinishTx?: string;
+      failedAt?: string;
+      failedReason?: string;
+    }>;
+  } | null>(null);
   const esRef = useRef<EventSource | null>(null);
 
   const modeLabel =
@@ -73,6 +93,7 @@ export default function App() {
     setError(null);
     setQuery('Get me the Ethereum price');
     setFailAt('none');
+    setRepHistory(null);
   };
 
   const progressPct = Math.round((completedCount / TOTAL_STEPS) * 100);
@@ -83,7 +104,13 @@ export default function App() {
   const protectedEvent = events.find((e) => e.step === 'funds_protected' && e.status === 'completed');
 
   const repSource = (auditEvent?.data?.reputation ?? protectedEvent?.data?.reputation) as
-    | { workerBefore?: number; workerAfter?: number; buyerBefore?: number; buyerAfter?: number }
+    | {
+      workerBefore?: number;
+      workerAfter?: number;
+      buyerBefore?: number;
+      buyerAfter?: number;
+      credentialUrl?: string;
+    }
     | undefined;
   const buyerDid = didEvent?.data?.buyerDID ? String(didEvent.data.buyerDID) : '';
   const workerDid = didEvent?.data?.workerDID ? String(didEvent.data.workerDID) : '';
@@ -106,7 +133,32 @@ export default function App() {
     ? `https://testnet.xrpl.org/transactions/${escrowFinishTx}`
     : '';
   const auditUrl = auditEvent?.data?.auditUrl ? String(auditEvent.data.auditUrl) : '';
+  const reputationHistoryUrl = auditEvent?.data?.reputationHistoryUrl
+    ? String(auditEvent.data.reputationHistoryUrl)
+    : workerDid
+      ? `/api/reputation-history?did=${encodeURIComponent(workerDid)}`
+      : '';
   const failedLayer = protectedEvent?.data?.failedAt ? String(protectedEvent.data.failedAt) : '';
+
+  useEffect(() => {
+    if (!isDone || !workerDid) return;
+    const controller = new AbortController();
+    fetch(`/api/reputation-history?did=${encodeURIComponent(workerDid)}`, {
+      signal: controller.signal,
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data?.success) return;
+        setRepHistory({
+          did: String(data.did),
+          currentScore: Number(data.currentScore ?? 50),
+          runs: Number(data.runs ?? 0),
+          history: Array.isArray(data.history) ? data.history : [],
+        });
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [isDone, workerDid]);
 
   return (
     <div className="min-h-screen bg-void grid-overlay flex flex-col">
@@ -367,11 +419,82 @@ export default function App() {
                   Audit Memo Tx ↗
                 </a>
               )}
+              {Boolean(reputationHistoryUrl) && (
+                <a
+                  href={reputationHistoryUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-mono border border-border rounded-lg px-3 py-2 text-slate-300 hover:text-white hover:border-slate-400 transition-colors"
+                >
+                  Reputation JSON ↗
+                </a>
+              )}
+              {Boolean(repSource?.credentialUrl) && (
+                <a
+                  href={String(repSource?.credentialUrl)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-mono border border-border rounded-lg px-3 py-2 text-cyan-DEFAULT hover:text-white hover:border-cyan-DEFAULT/40 transition-colors"
+                >
+                  Reputation Anchor Tx ↗
+                </a>
+              )}
               {Boolean(failedLayer) && (
                 <div className="font-mono border border-rose-DEFAULT/40 rounded-lg px-3 py-2 text-rose-DEFAULT">
                   Failed at: Layer {failedLayer}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {repHistory && (
+          <div className="rounded-2xl border border-border bg-card p-6 animate-fade-in space-y-3">
+            <h3 className="text-sm font-semibold uppercase tracking-widest text-slate-300">
+              DID Reputation History
+            </h3>
+            <p className="text-xs font-mono text-slate-500">
+              {repHistory.did} · score {repHistory.currentScore}/100 · runs {repHistory.runs}
+            </p>
+            <div className="space-y-2">
+              {repHistory.history.slice(-5).reverse().map((entry, idx) => (
+                <div key={`${entry.timestamp}-${idx}`} className="rounded-lg border border-border bg-surface p-3">
+                  <div className="flex items-center justify-between gap-2 text-xs font-mono">
+                    <span className={entry.outcome === 'pass' ? 'text-emerald-DEFAULT' : 'text-rose-DEFAULT'}>
+                      {entry.outcome.toUpperCase()} · {entry.before} → {entry.after} ({entry.delta > 0 ? '+' : ''}{entry.delta})
+                    </span>
+                    <span className="text-slate-600">{new Date(entry.timestamp).toLocaleTimeString()}</span>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2 text-xs font-mono">
+                    {!!entry.escrowCreateTx && (
+                      <a href={`https://testnet.xrpl.org/transactions/${entry.escrowCreateTx}`} target="_blank" rel="noreferrer" className="text-violet-DEFAULT hover:text-white">
+                        EscrowCreate ↗
+                      </a>
+                    )}
+                    {!!entry.escrowFinishTx && (
+                      <a href={`https://testnet.xrpl.org/transactions/${entry.escrowFinishTx}`} target="_blank" rel="noreferrer" className="text-emerald-DEFAULT hover:text-white">
+                        EscrowFinish ↗
+                      </a>
+                    )}
+                    {!!entry.auditUrl && (
+                      <a href={entry.auditUrl} target="_blank" rel="noreferrer" className="text-amber-DEFAULT hover:text-white">
+                        Audit Memo ↗
+                      </a>
+                    )}
+                    {!!entry.credentialUrl && (
+                      <a href={entry.credentialUrl} target="_blank" rel="noreferrer" className="text-cyan-DEFAULT hover:text-white">
+                        Reputation Anchor ↗
+                      </a>
+                    )}
+                    {!!entry.failedAt && (
+                      <span className="text-rose-DEFAULT">failed at {entry.failedAt}</span>
+                    )}
+                    {!!entry.failedReason && (
+                      <span className="text-rose-DEFAULT/80">reason: {entry.failedReason}</span>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}

@@ -3,6 +3,7 @@ import { DIDManager } from './services/DIDManager';
 import { EscrowManager } from './services/EscrowManager';
 import { ReputationService } from './services/ReputationService';
 import { VerifySettleService } from './services/VerifySettleService';
+import type { ReputationAnchorMemo } from './services/ReputationService';
 import type {
   Agent,
   AgentConfig,
@@ -155,6 +156,25 @@ export class XAG {
 
   async getReputation(address: string): Promise<ReputationResult> {
     return this.reputationService.getReputation(address);
+  }
+
+  async anchorReputationHash(
+    signer: { address: string; seed: string },
+    payload: Record<string, unknown>
+  ): Promise<string> {
+    return this.reputationService.writeMemo(
+      signer,
+      'REPUTATION_ANCHOR',
+      payload,
+      this.client
+    );
+  }
+
+  async getLatestReputationAnchor(
+    account: string,
+    subjectDid?: string
+  ): Promise<ReputationAnchorMemo | null> {
+    return this.reputationService.getLatestReputationAnchor(account, subjectDid);
   }
 
   // ─── Utilities ──────────────────────────────────────────────────────────────

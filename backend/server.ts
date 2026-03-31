@@ -5,6 +5,11 @@ import path from 'path';
 import { createHmac } from 'crypto';
 import { XAG } from './src/XAG';
 import { AIAgent, SUPPORTED_ASSETS } from './src/services/AIAgent';
+import { DemoStateStore, type StoredAgent } from './src/services/DemoStateStore';
+import {
+  buildReputationCredential,
+  hashCredential,
+} from './src/reputation/ReputationCredential';
 import type { AgentConfig, DemoEvent, VerifySettleInput } from './src/types';
 
 // .env lives one level up (repo root), not inside backend/
@@ -24,6 +29,7 @@ app.use(express.json());
 
 // ─── Initialise XAG ───────────────────────────────────────────────────────────
 const xag = new XAG({ xrplNode: XRPL_NODE });
+const demoStore = new DemoStateStore(path.join(__dirname, 'data', 'demo-state.json'));
 
 async function bootstrap() {
   await xag.connect();
@@ -72,6 +78,37 @@ app.get('/api/reputation/:address', async (req: Request, res: Response) => {
   try {
     const rep = await xag.getReputation(req.params.address);
     res.json({ success: true, reputation: rep });
+  } catch (err) {
+    res.status(500).json({ error: toMessage(err) });
+  }
+});
+
+app.get('/api/reputation-history', async (req: Request, res: Response) => {
+  const didQuery = String(req.query.did ?? '');
+  const addressQuery = String(req.query.address ?? '');
+  const did = didQuery.startsWith('did:xrpl:1:')
+    ? didQuery
+    : addressQuery
+      ? `did:xrpl:1:${addressQuery}`
+      : '';
+  if (!did) {
+    res.status(400).json({ error: 'Provide `did` or `address` query param' });
+    return;
+  }
+  try {
+    const history = await demoStore.getHistory(did);
+    const persisted = await demoStore.getAgents();
+    const issuerAccount = persisted.buyer?.address;
+    const latestAnchor = issuerAccount
+      ? await xag.getLatestReputationAnchor(issuerAccount, did)
+      : null;
+    const currentScore =
+      typeof latestAnchor?.newScore === 'number'
+        ? latestAnchor.newScore
+        : history.length > 0
+          ? history[history.length - 1].after
+          : 50;
+    res.json({ success: true, did, currentScore, runs: history.length, history });
   } catch (err) {
     res.status(500).json({ error: toMessage(err) });
   }
@@ -135,15 +172,49 @@ app.get('/api/demo/run', async (req: Request, res: Response) => {
 
   try {
     // ── STEP 1: Create agents ────────────────────────────────────────────────
-    step('agents_created', 'running', 'Creating buyer and worker agents on XRPL testnet…');
+    step('agents_created', 'running', 'Loading or creating buyer and worker agents on XRPL testnet…');
 
-    const [buyer, worker] = await Promise.all([
-      xag.createAgent({ name: 'Buyer Agent', type: 'buyer' }),
-      xag.createAgent({ name: 'Worker Agent', type: 'worker' }),
-    ]);
-    const baseReputation = 50;
+    const persisted = await demoStore.getAgents();
+    const [buyer, worker] = await (async () => {
+      if (persisted.buyer && persisted.worker) {
+        const [buyerBalanceDrops, workerBalanceDrops] = await Promise.all([
+          xag.getBalance(persisted.buyer.address),
+          xag.getBalance(persisted.worker.address),
+        ]);
+        return [
+          toRuntimeAgent(persisted.buyer, buyerBalanceDrops),
+          toRuntimeAgent(persisted.worker, workerBalanceDrops),
+        ];
+      }
 
-    step('agents_created', 'completed', 'Both agents funded and active on testnet.', {
+      const [newBuyer, newWorker] = await Promise.all([
+        xag.createAgent({ name: 'Buyer Agent', type: 'buyer' }),
+        xag.createAgent({ name: 'Worker Agent', type: 'worker' }),
+      ]);
+      await demoStore.saveAgents({
+        buyer: {
+          name: newBuyer.name,
+          type: newBuyer.type,
+          did: newBuyer.did,
+          address: newBuyer.address,
+          publicKey: newBuyer.publicKey,
+          seed: newBuyer.seed,
+          createdAt: newBuyer.createdAt,
+        },
+        worker: {
+          name: newWorker.name,
+          type: newWorker.type,
+          did: newWorker.did,
+          address: newWorker.address,
+          publicKey: newWorker.publicKey,
+          seed: newWorker.seed,
+          createdAt: newWorker.createdAt,
+        },
+      });
+      return [newBuyer, newWorker];
+    })();
+
+    step('agents_created', 'completed', 'Buyer/worker identities ready on testnet (persistent across runs).', {
       buyerAddress: buyer.address,
       workerAddress: worker.address,
       buyerBalance: xag.dropsToXrp(buyer.balanceDrops) + ' XRP',
@@ -347,12 +418,17 @@ app.get('/api/demo/run', async (req: Request, res: Response) => {
           buyerAddress:   buyer.address,
           protectedXRP:   '1 XRP (testnet)',
           failedAt:       result.failedAt,
-          reputation: {
-            workerBefore: baseReputation,
-            workerAfter:  40,
-            buyerBefore:  baseReputation,
-            buyerAfter:   55,
-          },
+          reputation: await recordReputation({
+            buyerDid: buyer.did,
+            workerDid: worker.did,
+            issuerDid: buyer.did,
+            signerAddress: buyer.address,
+            signerSeed: buyer.seed,
+            outcome: 'fail',
+            failedAt: String(result.failedAt ?? ''),
+            failedReason: String(result.reason ?? ''),
+            escrowCreateTx: escrow.txHash,
+          }),
         });
 
       res.write('data: [DONE]\n\n');
@@ -374,12 +450,18 @@ app.get('/api/demo/run', async (req: Request, res: Response) => {
     // ── STEP 11: Audit logged ────────────────────────────────────────────────
     step('audit_logged', 'completed', 'Audit trail written on-chain as XRPL transaction memo.', {
       auditUrl: result.auditUrl,
-      reputation: {
-        workerBefore: baseReputation,
-        workerAfter:  100,
-        buyerBefore:  baseReputation,
-        buyerAfter:   60,
-      },
+      reputation: await recordReputation({
+        buyerDid: buyer.did,
+        workerDid: worker.did,
+        issuerDid: buyer.did,
+        signerAddress: buyer.address,
+        signerSeed: buyer.seed,
+        outcome: 'pass',
+        auditUrl: result.auditUrl ?? '',
+        escrowCreateTx: escrow.txHash,
+        escrowFinishTx: result.txHash ?? '',
+      }),
+      reputationHistoryUrl: `/api/reputation-history?did=${encodeURIComponent(worker.did)}`,
       summary: 'Task completed • Payment released • Proof on-chain',
     });
 
@@ -413,6 +495,117 @@ async function fetchCoinPrice(apiBase: string, coinId: string): Promise<number> 
 
 function toMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+function toRuntimeAgent(stored: StoredAgent, balanceDrops: string) {
+  return {
+    ...stored,
+    balanceDrops,
+  };
+}
+
+async function recordReputation(args: {
+  buyerDid: string;
+  workerDid: string;
+  issuerDid: string;
+  signerAddress: string;
+  signerSeed: string;
+  outcome: 'pass' | 'fail';
+  failedAt?: string;
+  failedReason?: string;
+  auditUrl?: string;
+  escrowCreateTx?: string;
+  escrowFinishTx?: string;
+}) {
+  const [workerHistory, buyerHistory, latestWorkerAnchor] = await Promise.all([
+    demoStore.getHistory(args.workerDid),
+    demoStore.getHistory(args.buyerDid),
+    xag.getLatestReputationAnchor(args.signerAddress, args.workerDid),
+  ]);
+  const workerBefore =
+    typeof latestWorkerAnchor?.newScore === 'number'
+      ? latestWorkerAnchor.newScore
+      : workerHistory.length > 0
+        ? workerHistory[workerHistory.length - 1].after
+        : 50;
+  const buyerBefore = buyerHistory.length > 0 ? buyerHistory[buyerHistory.length - 1].after : 50;
+  const workerDelta = args.outcome === 'pass' ? 10 : -10;
+  const buyerDelta = args.outcome === 'pass' ? 10 : -10;
+  const workerAfter = Math.max(0, Math.min(100, workerBefore + workerDelta));
+  const buyerAfter = Math.max(0, Math.min(100, buyerBefore + buyerDelta));
+
+  const credential = buildReputationCredential({
+    subjectDid: args.workerDid,
+    issuerDid: args.issuerDid,
+    outcome: args.outcome,
+    before: workerBefore,
+    after: workerAfter,
+    delta: workerDelta,
+    failedAt: args.failedAt,
+    failedReason: args.failedReason,
+    escrowCreateTx: args.escrowCreateTx,
+    escrowFinishTx: args.escrowFinishTx,
+    auditUrl: args.auditUrl,
+  });
+  const credentialHash = hashCredential(credential);
+  const credentialTxHash = await xag.anchorReputationHash(
+    { address: args.signerAddress, seed: args.signerSeed },
+    {
+      type: 'REPUTATION_ANCHOR',
+      subjectDid: args.workerDid,
+      credentialHash,
+      outcome: args.outcome,
+      prevAnchorTxHash: latestWorkerAnchor?.txHash ?? '',
+      newScore: workerAfter,
+      failedReason: args.failedReason ?? '',
+      timestamp: new Date().toISOString(),
+    }
+  );
+  const credentialUrl = credentialTxHash
+    ? `https://testnet.xrpl.org/transactions/${credentialTxHash}`
+    : '';
+
+  // Write sequentially to avoid file write races in local JSON storage.
+  await demoStore.appendHistoryEntry(args.workerDid, {
+    timestamp: new Date().toISOString(),
+    outcome: args.outcome,
+    delta: workerDelta,
+    before: workerBefore,
+    after: workerAfter,
+    failedAt: args.failedAt,
+    failedReason: args.failedReason,
+    auditUrl: args.auditUrl,
+    escrowCreateTx: args.escrowCreateTx,
+    escrowFinishTx: args.escrowFinishTx,
+    credentialHash,
+    credentialTxHash,
+    credentialUrl,
+  });
+  await demoStore.appendHistoryEntry(args.buyerDid, {
+    timestamp: new Date().toISOString(),
+    outcome: args.outcome === 'pass' ? 'pass' : 'fail',
+    delta: buyerDelta,
+    before: buyerBefore,
+    after: buyerAfter,
+    failedAt: args.failedAt,
+    failedReason: args.failedReason,
+    auditUrl: args.auditUrl,
+    escrowCreateTx: args.escrowCreateTx,
+    escrowFinishTx: args.escrowFinishTx,
+    credentialHash,
+    credentialTxHash,
+    credentialUrl,
+  });
+
+  return {
+    workerBefore,
+    workerAfter,
+    buyerBefore,
+    buyerAfter,
+    credentialHash,
+    credentialTxHash,
+    credentialUrl,
+  };
 }
 
 // ─── Start ────────────────────────────────────────────────────────────────────

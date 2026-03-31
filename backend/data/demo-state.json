@@ -1,0 +1,192 @@
+{
+  "agents": {
+    "buyer": {
+      "name": "Buyer Agent",
+      "type": "buyer",
+      "did": "did:xrpl:1:rMwma6xo7KjxECFuaJarELnWBMCy9cnhLv",
+      "address": "rMwma6xo7KjxECFuaJarELnWBMCy9cnhLv",
+      "publicKey": "EDB733ACFCCAA401E0B5D44B392C6A88B869ABB6BB585DA789F4C1734D8E84FFCF",
+      "seed": "sEdVgVKAu5j2zSdYcDMh5SPE7pr38pd",
+      "createdAt": "2026-03-31T14:47:30.493Z"
+    },
+    "worker": {
+      "name": "Worker Agent",
+      "type": "worker",
+      "did": "did:xrpl:1:rfD6Vd71r1FcYpR2LioWvbWhsmNYoCna8f",
+      "address": "rfD6Vd71r1FcYpR2LioWvbWhsmNYoCna8f",
+      "publicKey": "EDB867898AD0B4793354D590AB553BF3EC2B9C11267A80964A16B75224E6F4F163",
+      "seed": "sEdSWJPgtp6mbqqYKpGmdnSnT9Lat2o",
+      "createdAt": "2026-03-31T14:47:30.011Z"
+    }
+  },
+  "reputationByDid": {
+    "did:xrpl:1:rfD6Vd71r1FcYpR2LioWvbWhsmNYoCna8f": [
+      {
+        "timestamp": "2026-03-31T14:47:50.969Z",
+        "outcome": "pass",
+        "auditUrl": "https://testnet.xrpl.org/transactions/1D8047EC047BA35BFFE693A411969B701BD2636FCD3CD40E5380B9C8C541A1EA",
+        "escrowCreateTx": "93065053CF2C018D80D0CF70B8BB1AC7FB88B779C8E03ACB22C471069F6E1913",
+        "escrowFinishTx": "92C8347E508500DA6E63D29A5AF1232692636ECDE438A51A7CDB6CF53F471115",
+        "before": 50,
+        "after": 60,
+        "delta": 10
+      },
+      {
+        "timestamp": "2026-03-31T15:05:33.601Z",
+        "outcome": "pass",
+        "delta": 10,
+        "before": 60,
+        "after": 70,
+        "auditUrl": "https://testnet.xrpl.org/transactions/673E8B053530F43F440A4A38DA83E7D8D56EFF259B07AD27922CBBB0193D4B40",
+        "escrowCreateTx": "A41D7184B97FF6C08143D921CB09B38F7BED0E6706BBA20921722E9F3927A8ED",
+        "escrowFinishTx": "62EF4BFBA0490EF81F636D5FBAEC494076F40B9A6B3F65E80456DC5C3D638DA6",
+        "credentialHash": "EE965571641423F6DE7BA3451A5994EE538D5E9E1F91B636F4E336A306910540",
+        "credentialTxHash": "FF6A664B1A8086D7770DBD3FF9C24A802B05B02E206397966977887C59B27E72",
+        "credentialUrl": "https://testnet.xrpl.org/transactions/FF6A664B1A8086D7770DBD3FF9C24A802B05B02E206397966977887C59B27E72"
+      },
+      {
+        "timestamp": "2026-03-31T15:13:42.177Z",
+        "outcome": "pass",
+        "delta": 10,
+        "before": 70,
+        "after": 80,
+        "auditUrl": "https://testnet.xrpl.org/transactions/D65166C2464D8CBC91CA35EF461DEA167B4EA072A954FA28B901517F0F62CF9E",
+        "escrowCreateTx": "B7BE080FA7FB5052FE76CF8A77708896D4C58771FB3CAD1CC2E3833251286483",
+        "escrowFinishTx": "CDC4AD30B5CC3065D86AA24BD8ECBACC59324F01A461A6CDBE2A94BA3AEC9D5C",
+        "credentialHash": "36B7B94E40496B510E7334AE50466672F9B2A10E1D548DC476B88091ADA96F1D",
+        "credentialTxHash": "031A0D0F9C82708D1AED6855AE6F1EF5F478F1DE516FF850048A114F5DF23217",
+        "credentialUrl": "https://testnet.xrpl.org/transactions/031A0D0F9C82708D1AED6855AE6F1EF5F478F1DE516FF850048A114F5DF23217"
+      },
+      {
+        "timestamp": "2026-03-31T15:15:21.422Z",
+        "outcome": "pass",
+        "delta": 10,
+        "before": 80,
+        "after": 90,
+        "auditUrl": "https://testnet.xrpl.org/transactions/A464139F7CF2A1E19797CF041D8520A0D38D6AC8BC7D1BA19FB640AD1B1B83B5",
+        "escrowCreateTx": "D6652CBA9F8FDC2A3BDFD5F61909B3D062C0C93478FDED92D00CFAAAA31FBE54",
+        "escrowFinishTx": "226A1578B6DF2859287861627D5CE1A05E1706D962C2DB602B735C29159787A8",
+        "credentialHash": "C635AB04EF474062D3B522452D8B0737E3348343D6B48E973F2C679327CCE0D5",
+        "credentialTxHash": "0B765EC615D1CC0323B7A02D4C5774F0D90BF2E4C798E6A3662BEA50BBB28290",
+        "credentialUrl": "https://testnet.xrpl.org/transactions/0B765EC615D1CC0323B7A02D4C5774F0D90BF2E4C798E6A3662BEA50BBB28290"
+      },
+      {
+        "timestamp": "2026-03-31T15:16:48.821Z",
+        "outcome": "fail",
+        "delta": -10,
+        "before": 90,
+        "after": 80,
+        "failedAt": "signature",
+        "escrowCreateTx": "C4049C02CC65D7F43C02083D80E94199E36F4C04AF56306C23BB166997C53B0C",
+        "credentialHash": "8F23501A17764EE8A2A38E70B833A96B5649D8FD475B2B26D3BCB2033F50A791",
+        "credentialTxHash": "439CC6FCEED13A00EB1BA672DA313789E15EE5351F75F7FCB80D65708898B7D7",
+        "credentialUrl": "https://testnet.xrpl.org/transactions/439CC6FCEED13A00EB1BA672DA313789E15EE5351F75F7FCB80D65708898B7D7"
+      },
+      {
+        "timestamp": "2026-03-31T15:20:08.144Z",
+        "outcome": "fail",
+        "delta": -10,
+        "before": 80,
+        "after": 70,
+        "failedAt": "schema",
+        "failedReason": "Schema validation failed: data must have required property 'asset'",
+        "escrowCreateTx": "91836B9AE52C46A6CFB4A2BFDACEEF47DEF7BD6518119963B4CF3E0E349961CF",
+        "credentialHash": "D86B8E9D9B467EE8E8962612B4D8905CCE4132A32A896225BE632BA1FA947983",
+        "credentialTxHash": "44A33DEDC54BA7C43544DEE0E8952C62314556FEE0F9CE2ED55858FF9A4E4E71",
+        "credentialUrl": "https://testnet.xrpl.org/transactions/44A33DEDC54BA7C43544DEE0E8952C62314556FEE0F9CE2ED55858FF9A4E4E71"
+      },
+      {
+        "timestamp": "2026-03-31T15:34:57.414Z",
+        "outcome": "pass",
+        "delta": 10,
+        "before": 70,
+        "after": 80,
+        "auditUrl": "https://testnet.xrpl.org/transactions/5EB26993F41171E6AFBDF2102D62B9C51BEC88DC2664525CDE5AEDDDECD7F790",
+        "escrowCreateTx": "26465F9F87CF5261A9E3FF9B0EA7680792E0D0CDB950A0B73B652EB549FF6AC6",
+        "escrowFinishTx": "DD607BB5719304C410B711814ACD9F2F6A3952F0BF695E5F9FA585189158C223",
+        "credentialHash": "07FF88D6232AEB419159C5AD60362B641993886ACBD6D2A81646CF37E4686E4C",
+        "credentialTxHash": "FA451F77B2A5992A7DEB9AFDF1B200C4D3275F0D6789AE90D0BD6ACE36E75455",
+        "credentialUrl": "https://testnet.xrpl.org/transactions/FA451F77B2A5992A7DEB9AFDF1B200C4D3275F0D6789AE90D0BD6ACE36E75455"
+      }
+    ],
+    "did:xrpl:1:rMwma6xo7KjxECFuaJarELnWBMCy9cnhLv": [
+      {
+        "timestamp": "2026-03-31T15:02:31.129Z",
+        "outcome": "pass",
+        "delta": 10,
+        "before": 50,
+        "after": 60,
+        "auditUrl": "https://testnet.xrpl.org/transactions/B140B8E55694D661AA86B6B7C17F8F97B280F8C8FA3E8A7FAF722B672272E5CE",
+        "escrowCreateTx": "972E57DE8FA94612C11B7A89C943DBF8594B1D40B3611A962F1A9189CE914C7C",
+        "escrowFinishTx": "6F41AB4072BF33D4ADD1B5E1324431E9F10F596C77B343E1D092F9DF4979E547",
+        "credentialHash": "F5AD6C95E813288DE531A8A2DFD03073AD66606B11ADE8B28B842C49EEAEF5BF",
+        "credentialTxHash": "62CBF46705900BF80315C864E1D91241411C59F5DFC435ECB911BA2962A5C670",
+        "credentialUrl": "https://testnet.xrpl.org/transactions/62CBF46705900BF80315C864E1D91241411C59F5DFC435ECB911BA2962A5C670"
+      },
+      {
+        "timestamp": "2026-03-31T15:13:42.182Z",
+        "outcome": "pass",
+        "delta": 10,
+        "before": 60,
+        "after": 70,
+        "auditUrl": "https://testnet.xrpl.org/transactions/D65166C2464D8CBC91CA35EF461DEA167B4EA072A954FA28B901517F0F62CF9E",
+        "escrowCreateTx": "B7BE080FA7FB5052FE76CF8A77708896D4C58771FB3CAD1CC2E3833251286483",
+        "escrowFinishTx": "CDC4AD30B5CC3065D86AA24BD8ECBACC59324F01A461A6CDBE2A94BA3AEC9D5C",
+        "credentialHash": "36B7B94E40496B510E7334AE50466672F9B2A10E1D548DC476B88091ADA96F1D",
+        "credentialTxHash": "031A0D0F9C82708D1AED6855AE6F1EF5F478F1DE516FF850048A114F5DF23217",
+        "credentialUrl": "https://testnet.xrpl.org/transactions/031A0D0F9C82708D1AED6855AE6F1EF5F478F1DE516FF850048A114F5DF23217"
+      },
+      {
+        "timestamp": "2026-03-31T15:15:21.427Z",
+        "outcome": "pass",
+        "delta": 10,
+        "before": 70,
+        "after": 80,
+        "auditUrl": "https://testnet.xrpl.org/transactions/A464139F7CF2A1E19797CF041D8520A0D38D6AC8BC7D1BA19FB640AD1B1B83B5",
+        "escrowCreateTx": "D6652CBA9F8FDC2A3BDFD5F61909B3D062C0C93478FDED92D00CFAAAA31FBE54",
+        "escrowFinishTx": "226A1578B6DF2859287861627D5CE1A05E1706D962C2DB602B735C29159787A8",
+        "credentialHash": "C635AB04EF474062D3B522452D8B0737E3348343D6B48E973F2C679327CCE0D5",
+        "credentialTxHash": "0B765EC615D1CC0323B7A02D4C5774F0D90BF2E4C798E6A3662BEA50BBB28290",
+        "credentialUrl": "https://testnet.xrpl.org/transactions/0B765EC615D1CC0323B7A02D4C5774F0D90BF2E4C798E6A3662BEA50BBB28290"
+      },
+      {
+        "timestamp": "2026-03-31T15:16:48.828Z",
+        "outcome": "fail",
+        "delta": -10,
+        "before": 80,
+        "after": 70,
+        "failedAt": "signature",
+        "escrowCreateTx": "C4049C02CC65D7F43C02083D80E94199E36F4C04AF56306C23BB166997C53B0C",
+        "credentialHash": "8F23501A17764EE8A2A38E70B833A96B5649D8FD475B2B26D3BCB2033F50A791",
+        "credentialTxHash": "439CC6FCEED13A00EB1BA672DA313789E15EE5351F75F7FCB80D65708898B7D7",
+        "credentialUrl": "https://testnet.xrpl.org/transactions/439CC6FCEED13A00EB1BA672DA313789E15EE5351F75F7FCB80D65708898B7D7"
+      },
+      {
+        "timestamp": "2026-03-31T15:20:08.152Z",
+        "outcome": "fail",
+        "delta": -10,
+        "before": 70,
+        "after": 60,
+        "failedAt": "schema",
+        "failedReason": "Schema validation failed: data must have required property 'asset'",
+        "escrowCreateTx": "91836B9AE52C46A6CFB4A2BFDACEEF47DEF7BD6518119963B4CF3E0E349961CF",
+        "credentialHash": "D86B8E9D9B467EE8E8962612B4D8905CCE4132A32A896225BE632BA1FA947983",
+        "credentialTxHash": "44A33DEDC54BA7C43544DEE0E8952C62314556FEE0F9CE2ED55858FF9A4E4E71",
+        "credentialUrl": "https://testnet.xrpl.org/transactions/44A33DEDC54BA7C43544DEE0E8952C62314556FEE0F9CE2ED55858FF9A4E4E71"
+      },
+      {
+        "timestamp": "2026-03-31T15:34:57.427Z",
+        "outcome": "pass",
+        "delta": 10,
+        "before": 60,
+        "after": 70,
+        "auditUrl": "https://testnet.xrpl.org/transactions/5EB26993F41171E6AFBDF2102D62B9C51BEC88DC2664525CDE5AEDDDECD7F790",
+        "escrowCreateTx": "26465F9F87CF5261A9E3FF9B0EA7680792E0D0CDB950A0B73B652EB549FF6AC6",
+        "escrowFinishTx": "DD607BB5719304C410B711814ACD9F2F6A3952F0BF695E5F9FA585189158C223",
+        "credentialHash": "07FF88D6232AEB419159C5AD60362B641993886ACBD6D2A81646CF37E4686E4C",
+        "credentialTxHash": "FA451F77B2A5992A7DEB9AFDF1B200C4D3275F0D6789AE90D0BD6ACE36E75455",
+        "credentialUrl": "https://testnet.xrpl.org/transactions/FA451F77B2A5992A7DEB9AFDF1B200C4D3275F0D6789AE90D0BD6ACE36E75455"
+      }
+    ]
+  }
+}

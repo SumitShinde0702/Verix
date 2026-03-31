@@ -11,13 +11,96 @@ interface MemoEntry {
 interface TxRecord {
   meta?: unknown;
   tx?: {
+    Account?: string;
     Memos?: MemoEntry[];
     hash?: string;
   };
 }
 
+export interface ReputationAnchorMemo {
+  txHash: string;
+  subjectDid: string;
+  outcome?: 'pass' | 'fail';
+  credentialHash?: string;
+  prevAnchorTxHash?: string;
+  newScore?: number;
+  failedReason?: string;
+  timestamp?: string;
+}
+
 export class ReputationService {
   constructor(private client: Client) {}
+
+  async getLatestReputationAnchor(
+    account: string,
+    subjectDid?: string
+  ): Promise<ReputationAnchorMemo | null> {
+    try {
+      let marker: unknown = undefined;
+      let fetched = 0;
+      const maxTx = 300;
+
+      do {
+        const params: Record<string, unknown> = {
+          command: 'account_tx',
+          account,
+          limit: 50,
+          ledger_index_min: -1,
+          ledger_index_max: -1,
+        };
+        if (marker) params.marker = marker;
+
+        const result = await this.client.request(
+          params as Parameters<typeof this.client.request>[0]
+        );
+        const res = result.result as { transactions: TxRecord[]; marker?: unknown };
+
+        for (const record of res.transactions) {
+          const memos = record.tx?.Memos;
+          if (!memos || !record.tx?.hash) continue;
+          for (const memoEntry of memos) {
+            const typeHex = memoEntry.Memo?.MemoType;
+            const dataHex = memoEntry.Memo?.MemoData;
+            if (!typeHex || !dataHex) continue;
+            const type = convertHexToString(typeHex);
+            if (type !== 'verix/REPUTATION_ANCHOR') continue;
+            const data = convertHexToString(dataHex);
+            try {
+              const parsed = JSON.parse(data) as {
+                subjectDid?: string;
+                outcome?: 'pass' | 'fail';
+                credentialHash?: string;
+                prevAnchorTxHash?: string;
+                newScore?: number;
+                failedReason?: string;
+                timestamp?: string;
+              };
+              if (subjectDid && parsed.subjectDid !== subjectDid) continue;
+              return {
+                txHash: record.tx.hash,
+                subjectDid: parsed.subjectDid ?? '',
+                outcome: parsed.outcome,
+                credentialHash: parsed.credentialHash,
+                prevAnchorTxHash: parsed.prevAnchorTxHash,
+                newScore: typeof parsed.newScore === 'number' ? parsed.newScore : undefined,
+                failedReason: parsed.failedReason,
+                timestamp: parsed.timestamp,
+              };
+            } catch {
+              // ignore malformed memo payload
+            }
+          }
+        }
+
+        fetched += res.transactions.length;
+        marker = res.marker;
+      } while (marker && fetched < maxTx);
+    } catch {
+      return null;
+    }
+
+    return null;
+  }
 
   /**
    * Score an agent by scanning their on-chain transaction history for Verix
