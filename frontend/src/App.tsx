@@ -3,6 +3,7 @@ import AgentCard   from './components/AgentCard';
 import StoryFeed   from './components/StoryFeed';
 import QueryInput  from './components/QueryInput';
 import type { DemoEvent, FailAt } from './types';
+import { API_BASE_URL, apiUrl } from './apiBase';
 
 const TOTAL_STEPS = 12;
 
@@ -61,7 +62,9 @@ export default function App() {
     setError(null);
     setIsRunning(true);
 
-    const url = `/api/demo/run?query=${encodeURIComponent(query || 'Get me the ETH price')}&failAt=${failAt}`;
+    const url = apiUrl(
+      `/api/demo/run?query=${encodeURIComponent(query || 'Get me the ETH price')}&failAt=${failAt}`
+    );
     const es = new EventSource(url);
     esRef.current = es;
 
@@ -79,7 +82,11 @@ export default function App() {
     };
 
     es.onerror = () => {
-      setError('Lost connection to backend. Is the backend running on port 3001?');
+      setError(
+        API_BASE_URL
+          ? 'Lost connection to the API. Check that the backend is deployed and reachable (CORS must allow this site).'
+          : 'Lost connection to backend. Is the backend running on port 3001?'
+      );
       setIsRunning(false);
       es.close();
     };
@@ -136,14 +143,14 @@ export default function App() {
   const reputationHistoryUrl = auditEvent?.data?.reputationHistoryUrl
     ? String(auditEvent.data.reputationHistoryUrl)
     : workerDid
-      ? `/api/reputation-history?did=${encodeURIComponent(workerDid)}`
+      ? apiUrl(`/api/reputation-history?did=${encodeURIComponent(workerDid)}`)
       : '';
   const failedLayer = protectedEvent?.data?.failedAt ? String(protectedEvent.data.failedAt) : '';
 
   useEffect(() => {
     if (!isDone || !workerDid) return;
     const controller = new AbortController();
-    fetch(`/api/reputation-history?did=${encodeURIComponent(workerDid)}`, {
+    fetch(apiUrl(`/api/reputation-history?did=${encodeURIComponent(workerDid)}`), {
       signal: controller.signal,
     })
       .then((r) => (r.ok ? r.json() : null))

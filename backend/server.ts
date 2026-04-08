@@ -19,12 +19,20 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3001;
 const XRPL_NODE =
   process.env.XRPL_NODE || 'wss://s.altnet.rippletest.net:51233';
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+const FRONTEND_URL_RAW = process.env.FRONTEND_URL || 'http://localhost:5173';
+const allowedFrontendOrigins = FRONTEND_URL_RAW.split(',').map((o) => o.trim()).filter(Boolean);
 const COINGECKO_API =
   process.env.COINGECKO_API || 'https://api.coingecko.com/api/v3';
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
 
-app.use(cors({ origin: FRONTEND_URL }));
+app.use(
+  cors({
+    origin:
+      allowedFrontendOrigins.length <= 1
+        ? allowedFrontendOrigins[0] ?? true
+        : allowedFrontendOrigins,
+  })
+);
 app.use(express.json());
 
 // ─── Initialise XAG ───────────────────────────────────────────────────────────

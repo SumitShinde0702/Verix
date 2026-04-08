@@ -1,10 +1,13 @@
 import { useState } from 'react';
+import { API_BASE_URL, apiUrl } from '../apiBase';
 
 const INSTALL_CMD = 'npm install @sumitshinde/verix-sdk';
 
+const EXAMPLE_API_ORIGIN = API_BASE_URL || 'http://localhost:3001';
+
 const QUICKSTART = `import { VerixClient } from '@sumitshinde/verix-sdk';
 
-const verix = new VerixClient('http://localhost:3001');
+const verix = new VerixClient('${EXAMPLE_API_ORIGIN}');
 
 const stream = verix.streamDemo({
   query: 'Fetch Chainlink price data',
@@ -24,8 +27,8 @@ const stream = verix.streamDemo({
 
 // stream.close() when needed`;
 
-const CURL_RUN = `curl -N "http://localhost:3001/api/demo/run?query=Fetch%20Chainlink%20price%20data&failAt=none"`;
-const CURL_REP = `curl "http://localhost:3001/api/reputation-history?did=did:xrpl:1:YOUR_WORKER_DID"`;
+const CURL_RUN = `curl -N "${EXAMPLE_API_ORIGIN}/api/demo/run?query=Fetch%20Chainlink%20price%20data&failAt=none"`;
+const CURL_REP = `curl "${EXAMPLE_API_ORIGIN}/api/reputation-history?did=did:xrpl:1:YOUR_WORKER_DID"`;
 const VERIFY_SETTLE_TYPES = `export interface VerifySettleInput {
   taskOutput: Record<string, unknown>;
   expectedSchema: Record<string, unknown>;
@@ -98,7 +101,7 @@ export default function DocsPage() {
     }
     setLoading(true);
     try {
-      const resp = await fetch(`/api/reputation-history?did=${encodeURIComponent(didInput)}`);
+      const resp = await fetch(apiUrl(`/api/reputation-history?did=${encodeURIComponent(didInput)}`));
       const body = await resp.json();
       setPlaygroundResult(JSON.stringify(body, null, 2));
     } catch (err) {

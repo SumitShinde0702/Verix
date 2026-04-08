@@ -63,7 +63,7 @@ Defined in `.env` at the **repository root** (see `.env.example`):
 |----------|---------|
 | `XRPL_NODE` | WebSocket endpoint (default: public XRPL testnet) |
 | `PORT` | Backend port (default `3001`) |
-| `FRONTEND_URL` | CORS origin for the UI (default `http://localhost:5173`) |
+| `FRONTEND_URL` | CORS allowed origin(s) for the UI; comma-separated for multiple (default `http://localhost:5173`) |
 | `COINGECKO_API` | Base URL for market data (default CoinGecko v3) |
 | `DEEPSEEK_API_KEY` | Required for AI-driven demo steps |
 
@@ -107,9 +107,9 @@ The package under `sdk/verix-sdk/` wraps the HTTP and SSE APIs for Node or brows
 
 ## Development notes
 
-- **CORS** is restricted to `FRONTEND_URL`; adjust when deploying the UI to a new origin.
+- **CORS** uses `FRONTEND_URL` (one origin or a comma-separated list). Include every UI origin (for example `https://your-app.vercel.app` and `http://localhost:5173` while developing against a hosted API).
 - **Demo state** for persisted agent keys lives under `backend/data/` (e.g. `demo-state.json`); treat as local secrets on testnet.
-- **Production**: run `npm run build`, then serve the frontend static assets and run `node backend/dist/server.js` with the same env vars and a process manager.
+- **Production**: Vercel (and similar) only host the **static** frontend. The **Express backend** must run somewhere else (Railway, Render, Fly.io, a VPS, etc.). In the **Vercel** project, set build env `VITE_API_BASE_URL` to that API origin with **no** trailing slash (for example `https://verix-api.example.com`). On the **backend**, set the same secrets as locally plus `FRONTEND_URL` including your live site origin. Then run `npm run build` and start `node backend/dist/server.js` (or your host’s start command) with `PORT` provided by the host.
 
 ---
 
