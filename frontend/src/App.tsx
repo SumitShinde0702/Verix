@@ -175,7 +175,18 @@ export default function App() {
               trustless task settlement · AI agent commerce
             </span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-5">
+            <nav className="hidden sm:flex items-center gap-3 text-xs font-mono">
+              <a href="/" className="text-slate-500 hover:text-white transition-colors">
+                Home
+              </a>
+              <a href="/demo" className="text-cyan-DEFAULT hover:text-white transition-colors">
+                Demo
+              </a>
+              <a href="/docs" className="text-violet-DEFAULT hover:text-white transition-colors">
+                Docs
+              </a>
+            </nav>
             {isRunning && (
               <div className="flex items-center gap-2 text-xs font-mono text-violet-DEFAULT">
                 <span className="w-1.5 h-1.5 rounded-full bg-violet-DEFAULT animate-pulse" />

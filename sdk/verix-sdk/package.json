@@ -1,0 +1,26 @@
+{
+  "name": "@sumitshinde/verix-sdk",
+  "version": "0.1.0",
+  "description": "Tiny SDK for Verix trustless task settlement APIs",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "keywords": [
+    "verix",
+    "xrpl",
+    "ai-agent",
+    "escrow",
+    "reputation"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.5.2"
+  }
+}
+
